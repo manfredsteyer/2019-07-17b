@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+    <html>
+    <head>
+        <meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+        <title>Architecture with Angular Ivy - Part 1: A possible future without NgModules?</title>
+        
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Microsoft/vscode/extensions/markdown-language-features/media/markdown.css">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Microsoft/vscode/extensions/markdown-language-features/media/highlight.css">
+        
+        <style>
+.task-list-item { list-style-type: none; } .task-list-item-checkbox { margin-left: -20px; vertical-align: middle; }
+</style>
+        <style>
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe WPC', 'Segoe UI', 'Ubuntu', 'Droid Sans', sans-serif;
+                font-size: 14px;
+                line-height: 1.6;
+            }
+        </style>
+        
+        
+    </head>
+    <body>
+        <h1 id="Architecture-with-Angular-Ivy---Part-1-A-possible-future-without-NgModules">Architecture with Angular Ivy - Part 1: A possible future without NgModules?</h1>
+<p>As there is already a module system in EcmaScript, the need for Angular Modules (NgModules) can be confusing. Hence, this is also always a big topic in my <a href="https://www.softwarearchitekt.at/schulungen/angular">Angular workshops</a>. Fortunately, for Angular Ivy NgModules are optional - at least beyond the covers.</p>
+<p>In this post I want to show:</p>
+<ul>
+<li>🔭 How a possible future without (with optional) NgModules could look like</li>
+<li>🐹 How we can prepare for this future already today</li>
+</ul>
+<p>The <a href="TODO!">source code</a> used for the examples can be found <a href="TODO!">here</a>.</p>
+<h2 id="A-little-history">A little history</h2>
+<p>When Angular -- back than called Angular 2 -- was envisioned, the team didn't plan to implement an own module system. While this was necessary in the times of AngularJS 1.x, the idea for Angular (2+) was to just leverage EcmaScript modules introduced in 2015.</p>
+<p>And so, Angular Modules have been among several AngularJS 1.x aspects that should have been skipped in the upcoming version of Google's SPA flagship. The following graphic, taken out of <a href="https://twitter.com/igorminar?lang=de">Igor Minar</a>'s and <a href="https://twitter.com/tbosch1009?lang=de">Tobias Bosch</a>'s presentation at ngEurope 2014 in Paris emphasizes this:</p>
+<p><img src="file:///d:\bak\artikel\Ivy-ARC\nomodules-article\gravestones.png" alt="AngularJS 1.0 aspects skipped for Angular"></p>
+<p>However, during the development of Angular it became obvious, that Angular Modules can come in handy for several reasons. One reason was lazy loading; another reason was the need to provide context for the Angular compiler. This is because the compiler needs to know which components, directives, and pipes are available within a template.</p>
+<p>On the contrary, Ivy has a different strategy to define the compilation context -- at least under the covers. The next section gives some details about this.</p>
+<h2 id="Compilation-Context-for-Ivy">Compilation Context for Ivy</h2>
+<p>One of the benefits of Ivy is that it produces simpler code. During compilation, it just adds a static <code>ngComponentDef</code> property to components. This property contains a definition object describing the component for the compiler.</p>
+<p>Similarly, the compiler adds also such a definition to directives and pipes. They are called <code>ngDirectiveDef</code> and <code>ngPipeDef</code>.</p>
+<p>You can even access it at runtime:</p>
+<pre><code class="language-typeScript"><div><span class="hljs-keyword">const</span> def: ComponentDef&lt;AppComponent&gt; = AppComponent[<span class="hljs-string">'ngComponentDef'</span>];
+<span class="hljs-built_in">console</span>.debug(<span class="hljs-string">'def'</span>, def);
+</div></code></pre>
+<p>The respective console output would look like this:</p>
+<p><img src="file:///d:\bak\artikel\Ivy-ARC\nomodules-article\ngComponentDef.png" alt="console output of ComponentDef"></p>
+<p>As you see here, these properties contain everything Angular needs to know when executing the component. Perhaps you've noticed the <code>directiveDefs</code> and <code>pipeDefs</code> properties. They contain the compilation context for the template we've talked about above.</p>
+<p>The first one points to an array of definitions for directives and components. Saying this, a component definition is just a special kind of a directive definition. Alternatively, <code>directiveDefs</code> can point to a factory function returning such an array.</p>
+<p>The <code>pipeDefs</code> property does the same for pipe definitions.</p>
+<p>This way, Angular knows which (sub-)components, directives, and pipes are available in a component's template.</p>
+<p>Now, you might wonder how those properties are filled with the right values. In order to prevent breaking changes, the Ivy compiler just looks up the necessary entries in the component's module as well as in all other modules imported there. After this, it adds the found components, directives, and pipes to <code>directiveDefs</code> or <code>pipeDefs</code>.</p>
+<p>However, if we wanted to use Ivy without modules, we could directly populate these two property. The next section provides some information about this idea.</p>
+<h2 id="Compilation-Context-without-NgModules">Compilation Context without NgModules</h2>
+<p>Technically, it's possible to directly add the compilation context to <code>directiveDefs</code> and <code>pipeDefs</code>. Unfortunately, these properties are not part of Angular's public API currently.</p>
+<p>This is for a reason: First of all, the Angular team concentrates on making sure Ivy is completely backwards compatible. Only than, they will introduce new features based upon Ivy step by step.</p>
+<p>When that happens, the <code>Component</code> decorator might get some additional properties for this reason.</p>
+<p>As the next section shows, we can already have a short look into this possible future today.</p>
+<h2 id="Directly-providing-the-compilation-context">Directly providing the compilation context</h2>
+<p>As directly providing the compilation context is not possible with public APIs today, this section directly leverages the available private ones. Of course, they can change and hence the techniques outlined here are <strong>not feasible for production</strong> code.</p>
+<p>Nethertheless, this experiment shows how modern Angular code might look like in the future. It also leads to a conclusion that tells us, how we can prepare for this future.</p>
+<p>To demonstrate how to directly provide the compilation context, I'm using a simple example here. It just contains a <code>tabbed-pane</code> which displays one of several <code>tab</code>s at a time:</p>
+<p><img src="file:///d:\bak\artikel\Ivy-ARC\nomodules-article\example.png" alt="Tabbed Pane example"></p>
+<p>The example's <code>AppComponent</code> uses them:</p>
+<pre><code class="language-html"><div><span class="hljs-tag">&lt;<span class="hljs-name">tabbed-pane</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-name">tab</span> <span class="hljs-attr">title</span>=<span class="hljs-string">"Tab 1"</span>&gt;</span>
+    Lorem ipsum ...
+  <span class="hljs-tag">&lt;/<span class="hljs-name">tab</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-name">tab</span> <span class="hljs-attr">title</span>=<span class="hljs-string">"Tab 2"</span>&gt;</span>
+    Lorem ipsum ...
+  <span class="hljs-tag">&lt;/<span class="hljs-name">tab</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-name">tab</span> <span class="hljs-attr">title</span>=<span class="hljs-string">"Tab 3"</span>&gt;</span>
+    Lorem ipsum ...
+  <span class="hljs-tag">&lt;/<span class="hljs-name">tab</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-name">tabbed-pane</span>&gt;</span>
+</div></code></pre>
+<p>For showing and hiding the tabs, the <code>TabbedPaneComponent</code> uses Angular's <code>*ngIf</code> directive and for displaying the link it uses <code>*ngFor</code>.</p>
+<p>If we want to provide the compilation context directly to these components, we need to get hold of the respective definition objects. For this, I've created a helper function:</p>
+<pre><code class="language-typescript"><div><span class="hljs-keyword">import</span> { Type } <span class="hljs-keyword">from</span> <span class="hljs-string">"@angular/core"</span>;
+<span class="hljs-keyword">import</span> { ɵComponentDef <span class="hljs-keyword">as</span> ComponentDef } <span class="hljs-keyword">from</span> <span class="hljs-string">'@angular/core'</span>;
+
+[...]
+
+<span class="hljs-keyword">export</span> <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">getComponentDef</span>&lt;<span class="hljs-title">T</span>&gt;(<span class="hljs-params">t: Type&lt;T&gt;</span>): <span class="hljs-title">ComponentDef</span>&lt;<span class="hljs-title">T</span>&gt; </span>{
+  <span class="hljs-keyword">if</span> (t[<span class="hljs-string">'ngComponentDef'</span>]) {
+    <span class="hljs-keyword">return</span> t[<span class="hljs-string">'ngComponentDef'</span>] <span class="hljs-keyword">as</span> ComponentDef&lt;T&gt;;
+  }
+
+  <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> <span class="hljs-built_in">Error</span>(<span class="hljs-string">'No Angular definition found for '</span> + t.name);
+}
+</div></code></pre>
+<p>As you might have noticed, the <code>ComponentDef</code> class is prefixed with the <code>ɵ</code> sign. This denotes that the class is still part of Angular's private API.</p>
+<p>I've written similar helper functions for getting <code>DirectiveDef</code>s and <code>PipeDef</code>s:</p>
+<pre><code class="language-typescript"><div><span class="hljs-keyword">export</span> <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">getDirectiveDef</span>&lt;<span class="hljs-title">T</span>&gt;(<span class="hljs-params">t: Type&lt;T&gt;</span>): <span class="hljs-title">DirectiveDef</span>&lt;<span class="hljs-title">T</span>&gt; </span>{
+ 
+    <span class="hljs-keyword">if</span> (t[<span class="hljs-string">'ngDirectiveDef'</span>]) {
+      <span class="hljs-keyword">return</span> t[<span class="hljs-string">'ngDirectiveDef'</span>] <span class="hljs-keyword">as</span> DirectiveDef&lt;T&gt;;
+    }
+
+    <span class="hljs-comment">// A Component(Def) is also a Directive(Def)</span>
+    <span class="hljs-keyword">if</span> (t[<span class="hljs-string">'ngComponentDef'</span>]) {
+      <span class="hljs-keyword">return</span> t[<span class="hljs-string">'ngComponentDef'</span>] <span class="hljs-keyword">as</span> ComponentDef&lt;T&gt;;
+    }
+
+    <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> <span class="hljs-built_in">Error</span>(<span class="hljs-string">'No Angular definition found for '</span> + t.name);
+}
+
+<span class="hljs-keyword">export</span> <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">getPipeDef</span>&lt;<span class="hljs-title">T</span>&gt;(<span class="hljs-params">t: Type&lt;T&gt;</span>): <span class="hljs-title">PipeDef</span>&lt;<span class="hljs-title">T</span>&gt; </span>{
+ 
+  <span class="hljs-keyword">if</span> (t[<span class="hljs-string">'ngPipeDef'</span>]) {
+    <span class="hljs-keyword">return</span> t[<span class="hljs-string">'ngPipeDef'</span>] <span class="hljs-keyword">as</span> PipeDef&lt;T&gt;;
+  }
+
+  <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> <span class="hljs-built_in">Error</span>(<span class="hljs-string">'No Angular definition found for '</span> + t.name);
+}
+</div></code></pre>
+<p>Similarly, I've written helper functions for getting all the definition objects from an array of directives and an array of pipes:</p>
+<pre><code class="language-typescript"><div><span class="hljs-keyword">export</span> <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">getDirectiveDefs</span>(<span class="hljs-params">types: Type&lt;<span class="hljs-built_in">any</span>&gt;[]</span>): <span class="hljs-title">DirectiveDef</span>&lt;<span class="hljs-title">any</span>&gt;[] </span>{
+  <span class="hljs-keyword">return</span> types.map(<span class="hljs-function"><span class="hljs-params">t</span> =&gt;</span> getDirectiveDef(t));
+}
+
+<span class="hljs-keyword">export</span> <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">getPipeDefs</span>(<span class="hljs-params">types: Type&lt;<span class="hljs-built_in">any</span>&gt;[]</span>): <span class="hljs-title">PipeDef</span>&lt;<span class="hljs-title">any</span>&gt;[] </span>{
+  <span class="hljs-keyword">return</span> types.map(<span class="hljs-function"><span class="hljs-params">t</span> =&gt;</span> getPipeDef(t));
+}
+</div></code></pre>
+<p>Please note that the former one is also respecting component definitions, as a component definition is a special kind of a directive definition. Technically, <code>ComponentDef</code> even inherits <code>DirectiveDef</code>.</p>
+<p>Using these helpers, we can easily add the compilation context to our components:</p>
+<pre><code class="language-typescript"><div><span class="hljs-meta">@Component</span>({ [...] })
+<span class="hljs-keyword">export</span> <span class="hljs-keyword">class</span> AppComponent {
+  title = <span class="hljs-string">'demo'</span>;
+}
+
+<span class="hljs-comment">// Adding compilation context</span>
+<span class="hljs-keyword">const</span> def = getComponentDef(AppComponent);
+
+def.directiveDefs = [
+  getDirectiveDef(TabComponent), 
+  getDirectiveDef(TabbedPaneComponent)
+];
+</div></code></pre>
+<p>For the sake of simplicity, I'm overwriting the <code>directiveDefs</code> property here. This means that values the compiler placed there after traversing possibly existing modules are overwritten too.</p>
+<p>Of course, adding the same definition objects time and again to different consuming objects is annoying. However, we could group components belonging together using a central array:</p>
+<pre><code class="language-typescript"><div><span class="hljs-keyword">export</span> <span class="hljs-keyword">const</span> TABBEND_PANE_COMPONENTS = [
+    TabbedPaneComponent,
+    TabComponent
+];
+</div></code></pre>
+<p>To import this array, we can use our <code>getDirectiveDef</code> helper function:</p>
+<pre><code class="language-typescript"><div>def.directiveDefs = [
+  ...getDirectiveDefs(TABBEND_PANE_COMPONENTS)
+];
+</div></code></pre>
+<p>Similarly to this, I've written a file exporting all the directives I need from <code>@angular/common</code>:</p>
+<pre><code class="language-typescript"><div><span class="hljs-keyword">export</span> <span class="hljs-keyword">const</span> COMMON_DIRECTIVES = [
+    NgIf,
+    NgForOf,
+    <span class="hljs-comment">// etc.</span>
+];
+</div></code></pre>
+<p>This one is used for the <code>TabbedPaneComponent</code>:</p>
+<pre><code class="language-typescript"><div><span class="hljs-meta">@Component</span>({ [...] })
+<span class="hljs-keyword">export</span> <span class="hljs-keyword">class</span> TabbedPaneComponent <span class="hljs-keyword">implements</span> AfterContentInit {
+    [...]
+}
+
+<span class="hljs-keyword">const</span> def = getDef(TabbedPaneComponent);
+
+def.directiveDefs = [
+     ...getDefs(COMMON_DIRECTIVES)
+];
+</div></code></pre>
+<p>Of course, as we have just two components, this is not a big win here but in bigger scenarios with lots of components using such an array comes quite in handy.</p>
+<p>As patching a component after defining it is somewhat brutal, the next section shows a better way.</p>
+<h2 id="Providing-the-compilation-context-with-a-decorator">Providing the compilation context with a decorator</h2>
+<p>To add the compilation context to components in a way we are more used to as Angular developers, I've written a simple decorator:</p>
+<pre><code class="language-typescript"><div><span class="hljs-keyword">export</span> <span class="hljs-keyword">interface</span> ComponentDepsConfig {
+  directives?: Type&lt;<span class="hljs-built_in">any</span>&gt;[];
+  pipes?: Type&lt;<span class="hljs-built_in">any</span>&gt;[];
+}
+
+<span class="hljs-keyword">export</span> <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">ComponentDeps</span>(<span class="hljs-params">config: ComponentDepsConfig</span>) </span>{
+  <span class="hljs-keyword">return</span> <span class="hljs-function">(<span class="hljs-params">component</span>) =&gt;</span> {
+
+    <span class="hljs-keyword">const</span> def = getComponentDef(component);
+
+    def.directiveDefs = [
+      ...getDirectiveDefs(config.directives || [])
+    ];
+
+    def.pipeDefs = [
+      ...getPipeDefs(config.pipes || [])
+    ];
+
+  }
+}
+</div></code></pre>
+<p>To be more precise, this is a factory for a decorator. It takes a config object containing the compilation context and returns a decorator for a component. This decorator adds the context to the component's definition.</p>
+<p>Now, let's apply this decorator to our components:</p>
+<pre><code class="language-typescript"><div><span class="hljs-meta">@Component</span>({ [...] })
+<span class="hljs-meta">@ComponentDeps</span>({
+  directives: [ 
+    ...TABBEND_PANE_COMPONENTS
+  ]
+})
+<span class="hljs-keyword">export</span> <span class="hljs-keyword">class</span> AppComponent {
+  title = <span class="hljs-string">'demo'</span>;
+}
+</div></code></pre>
+<p>This looks a lot like the envisioned possible future where the component decorator directly takes the compilation context.</p>
+<p>However, now the question is what can we learn from this experimental case study. The next section provides an answer.</p>
+<h2 id="Preparing-for-a-possible-future-without-with-optional-NgModules">Preparing for a possible future without (with optional) NgModules</h2>
+<p>In this article, we've seen that we need a compilation context. If we don't have something like <code>NgModules</code> we could assign it directly to our components. This is already possible by using internal APIs and the respective properties might eventually be exposed a part of Angular's public API.</p>
+<p>We've also seen that even in this case, it's in handy to group components, directives, or pipes belonging together. For this reason we've used a simple array:</p>
+<pre><code class="language-typescript"><div><span class="hljs-keyword">export</span> <span class="hljs-keyword">const</span> TABBEND_PANE_COMPONENTS = [
+    TabbedPaneComponent,
+    TabComponent
+];
+</div></code></pre>
+<p>Interestingly, this array look like the <code>export</code> part of an NgModule. However, this is pure EcmaScript which makes its simpler and easier to understand.</p>
+<p>Also, it's obvious that even in a future without <code>NgModules</code> we need a way to group parts of our code. We will also need some way of information hiding which means we have to define public and private parts of our APIs. Fortunately, this can also be accomplished with pure EcmaScript by using barrels.</p>
+<p>For instance, in my case study, the <code>tabbed-pane</code> folder has the following <code>index.ts</code>:</p>
+<pre><code class="language-typescript"><div><span class="hljs-keyword">export</span> * <span class="hljs-keyword">from</span> <span class="hljs-string">'./tab.component'</span>;
+<span class="hljs-keyword">export</span> * <span class="hljs-keyword">from</span> <span class="hljs-string">'./tabbed-pane.component'</span>;
+
+<span class="hljs-comment">// array with components</span>
+<span class="hljs-keyword">export</span> * <span class="hljs-keyword">from</span> <span class="hljs-string">'./components'</span>; 
+</div></code></pre>
+<p>The <code>app.component.ts</code> imports this barrel:</p>
+<pre><code class="language-typescript"><div><span class="hljs-keyword">import</span> { TABBEND_PANE_COMPONENTS } <span class="hljs-keyword">from</span> <span class="hljs-string">'./tabbed-pane'</span>;
+</div></code></pre>
+<p>We can even go one step further and use a monorepo with different libraries. Each library gets a barrel which defines the public API. Thanks to the Angular CLI creating libraries to group your code is very easy. It's just a matter of one command (<code>ng generate lib my-lib</code>) and it also makes your code more reusable.</p>
+<p>Furthermore, when using <a href="https://nx.dev">Nrwl's Nx</a> for creating an Angular CLI based monorepo, you can also <a href="https://www.softwarearchitekt.at/post/2019/03/04/sustainable-angular-architectures-with-strategic-design-and-monorepos-part-2-implementation.aspx">define access restrictions between your libraries</a>. Also, it contains linting rules preventing that someone uses private parts of your APIs by bypassing their barrels.</p>
+<p>This all leads to my advice for preparing for this possible future without (with optional) Angular modules:</p>
+<ol>
+<li>Cut your application into libraries and use barrels to define their public APIs.</li>
+<li>When NgModules become optional, replace them with an their <code>export</code> arrays.</li>
+</ol>
+<p>Finally, let me tell you the best: Regardless, if this possible future will happen or not, this advice makes a lot of sense anyway, because cutting your application into tiny libraries with a public and a private part leads to a more robust architecture.</p>
+
+    </body>
+    </html>
