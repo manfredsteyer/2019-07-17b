@@ -22,13 +22,17 @@
     </head>
     <body>
         <h1 id="Architecture-with-Angular-Ivy---Part-1-A-possible-future-without-NgModules">Architecture with Angular Ivy - Part 1: A possible future without NgModules?</h1>
+<blockquote>
+<p>Thanks to Angular's <a href="https://twitter.com/mgechev">Minko Gechev</a> for reviewing this article.</p>
+</blockquote>
 <p>As there is already a module system in EcmaScript, the need for Angular Modules (NgModules) can be confusing. Hence, this is also always a big topic in my <a href="https://www.softwarearchitekt.at/schulungen/angular">Angular workshops</a>. Fortunately, for Angular Ivy NgModules are optional - at least beyond the covers.</p>
 <p>In this post I want to show:</p>
 <ul>
 <li>🔭 How a possible future without (with optional) NgModules could look like</li>
 <li>🐹 How we can prepare for this future already today</li>
 </ul>
-<p>The <a href="TODO!">source code</a> used for the examples can be found <a href="TODO!">here</a>.</p>
+<p>The <a href="https://github.com/manfredsteyer/angular-without-modules">source code</a> used for the examples can be found <a href="https://github.com/manfredsteyer/angular-without-modules">here</a>.</p>
+<p><strong>DISCLAIMER</strong>: The examples here are an <em>experiment</em> showing a possible direction Angular might be heading to. Hence, it's not production ready and it <em>does not</em> reflect the Angular teams's official vision. Nethertheless, it shows what's possible with Ivy and it leads to a conclusion about <em>how we can prepare already today</em> for a future without <code>NgModules</code>.</p>
 <h2 id="A-little-history">A little history</h2>
 <p>When Angular -- back than called Angular 2 -- was envisioned, the team didn't plan to implement an own module system. While this was necessary in the times of AngularJS 1.x, the idea for Angular (2+) was to just leverage EcmaScript modules introduced in 2015.</p>
 <p>And so, Angular Modules have been among several AngularJS 1.x aspects that should have been skipped in the upcoming version of Google's SPA flagship. The following graphic, taken out of <a href="https://twitter.com/igorminar?lang=de">Igor Minar</a>'s and <a href="https://twitter.com/tbosch1009?lang=de">Tobias Bosch</a>'s presentation at ngEurope 2014 in Paris emphasizes this:</p>
@@ -205,8 +209,8 @@ def.directiveDefs = [
   title = <span class="hljs-string">'demo'</span>;
 }
 </div></code></pre>
-<p>This looks a lot like the envisioned possible future where the component decorator directly takes the compilation context.</p>
-<p>However, now the question is what can we learn from this experimental case study. The next section provides an answer.</p>
+<p>This looks a lot like the envisioned possible future where the component decorator directly takes the compilation context. Also, Angular's <a href="https://twitter.com/mgechev">Minko Gechev</a> created a <a href="https://github.com/mgechev/angular-ivy-demo">prototype of Angular</a> which uses this idea. It's Component decorator come with a <code>deps</code> property that serves the same purpose. One more time, this is all is about showing what's possible and it doesn't reflect the Angular teams's official vision.</p>
+<p>However, now the question is what can we learn from this case study. The next section provides an answer.</p>
 <h2 id="Preparing-for-a-possible-future-without-with-optional-NgModules">Preparing for a possible future without (with optional) NgModules</h2>
 <p>In this article, we've seen that we need a compilation context. If we don't have something like <code>NgModules</code> we could assign it directly to our components. This is already possible by using internal APIs and the respective properties might eventually be exposed a part of Angular's public API.</p>
 <p>We've also seen that even in this case, it's in handy to group components, directives, or pipes belonging together. For this reason we've used a simple array:</p>
@@ -229,7 +233,9 @@ def.directiveDefs = [
 </div></code></pre>
 <p>We can even go one step further and use a monorepo with different libraries. Each library gets a barrel which defines the public API. Thanks to the Angular CLI creating libraries to group your code is very easy. It's just a matter of one command (<code>ng generate lib my-lib</code>) and it also makes your code more reusable.</p>
 <p>Furthermore, when using <a href="https://nx.dev">Nrwl's Nx</a> for creating an Angular CLI based monorepo, you can also <a href="https://www.softwarearchitekt.at/post/2019/03/04/sustainable-angular-architectures-with-strategic-design-and-monorepos-part-2-implementation.aspx">define access restrictions between your libraries</a>. Also, it contains linting rules preventing that someone uses private parts of your APIs by bypassing their barrels.</p>
-<p>This all leads to my advice for preparing for this possible future without (with optional) Angular modules:</p>
+<p>This all leads to my advice for preparing for this possible future without (with optional) Angular modules.</p>
+<h2 id="Conclusion">Conclusion</h2>
+<p>As you have seen here, we can already prepare today for a possible future without (with optional) NgModules. It's as easy as that:</p>
 <ol>
 <li>Cut your application into libraries and use barrels to define their public APIs.</li>
 <li>When NgModules become optional, replace them with an their <code>export</code> arrays.</li>

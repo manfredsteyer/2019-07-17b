@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+    <html>
+    <head>
+        <meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+        <title>Architecture with Angular Ivy - Part 2: Higher order and dynamic Components</title>
+        
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Microsoft/vscode/extensions/markdown-language-features/media/markdown.css">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Microsoft/vscode/extensions/markdown-language-features/media/highlight.css">
+        
+        <style>
+.task-list-item { list-style-type: none; } .task-list-item-checkbox { margin-left: -20px; vertical-align: middle; }
+</style>
+        <style>
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe WPC', 'Segoe UI', 'Ubuntu', 'Droid Sans', sans-serif;
+                font-size: 14px;
+                line-height: 1.6;
+            }
+        </style>
+        
+        
+    </head>
+    <body>
+        <h1 id="architecture-with-angular-ivy---part-2-higher-order-and-dynamic-components">Architecture with Angular Ivy - Part 2: Higher order and dynamic Components</h1>
+<p>As an software architect, I'm constantly in search for ways to improve my applications's structures. The goal is nearly always to provide robust and more sustainable solutions. This is also a big topic in my <a href="TODO!">advanced Enterprise Angular workshop</a>.</p>
+<p>Ivy provides some very nice features helping to reach these goals.
+In this article series, I show them in the context of several examples. I look behind the curtain of Angular's new view engine which helps us to understand better what's going on and what the future of Angular might look like.</p>
+<p>In this article, I show how to use Ivy to generate components on the fly and how to create a higher order components.</p>
+<p><strong>DISCLAIMER</strong>: The examples here are an <strong>experiment</strong> showing how Ivy works under the covers by leveraging its <strong>private APIs</strong>. Hence, it's not production ready and it <em>does not</em> reflect the Angular teams's official vision. Nethertheless, it's useful to learn how Ivy works and what features we might get via the official public APIs after Ivy landed.</p>
+<p>Currently, the Angular team's goal is to make sure, there are no breaking changes after migrating to Ivy. After this, they will introduce new features based on Ivy step by step.</p>
+<h2 id="example">Example</h2>
+<p>The example I use here is a simple comic browser:</p>
+<p><img src="file:///d:\bak\artikel\Ivy-ARC\nomodules-article\hoc-example.png" alt="Example app to explain dynamic and higher order components"></p>
+<p>After selecting a comic from the list, the router puts the respective comicId into the URL and activates a <code>RoutedComicComponent</code>:</p>
+<pre><code class="language-typescript"><div><span class="hljs-meta">@Component</span>({
+  selector: <span class="hljs-string">'app-routed-comic'</span>,
+  templateUrl: <span class="hljs-string">'./routed-comic.component.html'</span>
+})
+<span class="hljs-keyword">export</span> <span class="hljs-keyword">class</span> RoutedComicComponent <span class="hljs-keyword">implements</span> OnInit {
+
+  <span class="hljs-keyword">constructor</span>(<span class="hljs-params"><span class="hljs-keyword">private</span> route: ActivatedRoute</span>) { }
+
+  params: <span class="hljs-built_in">any</span> = {};
+
+  ngOnInit() {
+    <span class="hljs-keyword">this</span>.route.params.subscribe(<span class="hljs-function"><span class="hljs-params">params</span> =&gt;</span> {
+      <span class="hljs-keyword">this</span>.params = params;
+    });
+  }
+
+}
+</div></code></pre>
+<p>This component reads the parameters from the URL. The template binds them to the <code>ComicComponent</code> which displays the comic in question:</p>
+<pre><code class="language-html"><div><span class="hljs-tag">&lt;<span class="hljs-name">app-comic</span> [<span class="hljs-attr">comicId</span>]=<span class="hljs-string">"params.comicId"</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-name">app-comic</span>&gt;</span>
+</div></code></pre>
+<h2 id="goal">Goal</h2>
+<p>In our example, the <code>RoutedComicComponent</code> can be considered glue code. It's just there to read and delegate the parameters.</p>
+<p>Of course, we could put this logic into the <code>ComicComponent</code> but in this case this component would have to know the router including the current very specific routing configuration. In turn, this component would become less reusable.</p>
+<p>On the other side, the RoutedComicComponent would look very similar for other components. Only its encapsulated component needed to be exchanged. Hence, we can create this component on the fly for different encapsulated components.</p>
+<p>As the next sections show, this task is quite easy with Ivy.</p>
+<h2 id="inspecting-the-result-of-the-ivy-compiler">Inspecting the result of the Ivy compiler</h2>
+<p>Before we go on, let's find out how Ivy transforms our <code>RoutedComicComponent</code> during the compilation. To make the compiled code more readable, we should switch to ES2015 if this is not already the case. For this, make sure the <code>target</code> property in your <code>tsconfig.json</code> points to <code>ES2015</code>:</p>
+<pre><code class="language-json"><div>{
+  [...]
+  <span class="hljs-attr">"compilerOptions"</span>: {
+    [...]
+    <span class="hljs-attr">"target"</span>: <span class="hljs-string">"es2015"</span>,
+    [...]
+  },
+  [...]
+}
+</div></code></pre>
+<p>Also, make sure, you are using Ivy. In this case, we need the following <code>angularCompilerOptions</code> node in our <code>tsconfig.app.json</code>:</p>
+<pre><code class="language-json"><div>{
+  <span class="hljs-attr">"extends"</span>: <span class="hljs-string">"./tsconfig.json"</span>,
+  <span class="hljs-attr">"compilerOptions"</span>: {
+    [...]
+  },
+  <span class="hljs-attr">"include"</span>: [
+    [...]
+  ],
+  <span class="hljs-attr">"exclude"</span>: [
+    [...]
+  ],
+  <span class="hljs-attr">"angularCompilerOptions"</span>: {
+    <span class="hljs-attr">"enableIvy"</span>: <span class="hljs-literal">true</span>
+  }
+}
+</div></code></pre>
+
+    </body>
+    </html>

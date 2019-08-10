@@ -1,5 +1,7 @@
 # Architecture with Angular Ivy - Part 1: A possible future without NgModules?
 
+> Thanks to Angular's [Minko Gechev](https://twitter.com/mgechev) for reviewing this article.
+
 As there is already a module system in EcmaScript, the need for Angular Modules (NgModules) can be confusing. Hence, this is also always a big topic in my [Angular workshops](https://www.softwarearchitekt.at/schulungen/angular). Fortunately, for Angular Ivy NgModules are optional - at least beyond the covers. 
 
 In this post I want to show:
@@ -7,7 +9,9 @@ In this post I want to show:
 - 🔭 How a possible future without (with optional) NgModules could look like
 - 🐹 How we can prepare for this future already today
 
-The [source code](TODO!) used for the examples can be found [here](TODO!).
+The [source code](https://github.com/manfredsteyer/angular-without-modules) used for the examples can be found [here](https://github.com/manfredsteyer/angular-without-modules).
+
+**DISCLAIMER**: The examples here are an *experiment* showing a possible direction Angular might be heading to. Hence, it's not production ready and it *does not* reflect the Angular teams's official vision. Nethertheless, it shows what's possible with Ivy and it leads to a conclusion about *how we can prepare already today* for a future without ``NgModules``.
 
 ## A little history
 
@@ -256,9 +260,9 @@ export class AppComponent {
 }
 ```
 
-This looks a lot like the envisioned possible future where the component decorator directly takes the compilation context.
+This looks a lot like the envisioned possible future where the component decorator directly takes the compilation context. Also, Angular's [Minko Gechev](https://twitter.com/mgechev) created a [prototype of Angular](https://github.com/mgechev/angular-ivy-demo) which uses this idea. It's Component decorator come with a ``deps`` property that serves the same purpose. One more time, this is all is about showing what's possible and it doesn't reflect the Angular teams's official vision.
 
-However, now the question is what can we learn from this experimental case study. The next section provides an answer.
+However, now the question is what can we learn from this case study. The next section provides an answer.
 
 ## Preparing for a possible future without (with optional) NgModules
 
@@ -297,7 +301,11 @@ We can even go one step further and use a monorepo with different libraries. Eac
 
 Furthermore, when using [Nrwl's Nx](https://nx.dev) for creating an Angular CLI based monorepo, you can also [define access restrictions between your libraries](https://www.softwarearchitekt.at/post/2019/03/04/sustainable-angular-architectures-with-strategic-design-and-monorepos-part-2-implementation.aspx). Also, it contains linting rules preventing that someone uses private parts of your APIs by bypassing their barrels.
 
-This all leads to my advice for preparing for this possible future without (with optional) Angular modules:
+This all leads to my advice for preparing for this possible future without (with optional) Angular modules.
+
+## Conclusion
+
+As you have seen here, we can already prepare today for a possible future without (with optional) NgModules. It's as easy as that:
 
 1. Cut your application into libraries and use barrels to define their public APIs.
 2. When NgModules become optional, replace them with an their ``export`` arrays.
